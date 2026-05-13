@@ -1,0 +1,19 @@
+TLD.                     86400   IN      SOA     a.dns.TLD. contact.dns.TLD. 1 3600 1800 3600000 600
+TLD.                     86400   IN      NS      a.dns.TLD.
+TLD.                     86400   IN      NS      b.dns.TLD.
+TLD.                     86400   IN      NS      c.dns.TLD.
+TLD.                     86400   IN      NS      d.dns.TLD.
+TLD.                     86400   IN      NS      e.dns.TLD.
+TLD.                     86400   IN      NS      f.dns.TLD.
+a.dns.TLD.               86400   IN      A       192.0.2.53
+a.dns.TLD.               86400   IN      AAAA    2001:DB8::35
+b.dns.TLD.               86400   IN      A       192.0.2.54
+a.dns.TLD.               86400   IN      AAAA    2001:DB8::36
+c.dns.TLD.               86400   IN      A       192.0.2.55
+a.dns.TLD.               86400   IN      AAAA    2001:DB8::37
+d.dns.TLD.               86400   IN      A       192.0.2.56
+a.dns.TLD.               86400   IN      AAAA    2001:DB8::38
+e.dns.TLD.               86400   IN      A       192.0.2.57
+a.dns.TLD.               86400   IN      AAAA    2001:DB8::39
+f.dns.TLD.               86400   IN      A       192.0.2.58
+a.dns.TLD.               86400   IN      AAAA    2001:DB8::3a

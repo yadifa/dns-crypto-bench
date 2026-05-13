@@ -1,0 +1,111 @@
+#!/bin/sh
+
+set -e
+
+SCRIPT_DIR=$(readlink -f $(dirname "$0"))
+cd "$SCRIPT_DIR"
+
+. ./settings
+
+if [ -f "/etc/arch-release" ]; then
+  echo "arch-linux type detected"
+
+  if pacman -Q liboqs; then
+    echo "liboqs found"
+  else
+    echo "liboqs not found, please install it e.g. using yay -Sy liboqs"
+    exit 1
+  fi
+
+  for package_name in openssl cmake ninja gcc; do
+    if pacman -Q $package_name; then
+      echo "$package_name found"
+    else
+      echo "$package_name not found, please install it e.g. using pacman -Syu $package_name"
+      exit 1
+    fi
+  done
+
+else
+
+  if [ [ -f /usr/lib/liboqs.so ] || [ -f /usr/local/lib/liboqs.so ] ] && [ [ -f /usr/include/oqs/oqs.h ] || [ -f /usr/local/include/oqs/oqs.h ] ]; then
+    echo "liboqs appears to be installed"
+  else
+    echo "========================================================================================================="
+    echo "the script was originally writen for an arch-linux derivative, please be sure liboqs >= 0.15 is installed"
+    echo "========================================================================================================="
+    exit 1
+  fi
+
+  if [ [ -f /usr/lib/libssl.so ] || [ -f /usr/local/lib/libssl.so ] ] && [ [ -f /usr/include/openssl/ssl.h ] || [ -f /usr/local/include/openssl/ssl.h ] ]; then
+    echo "libssl appears to be installed"
+  else
+    echo "======================================================================================================"
+    echo "the script was originally writen for an arch-linux derivative, please be sure libssl >= 3 is installed"
+    echo "======================================================================================================"
+    exit 1
+  fi
+
+  for executable_name in gcc ninja cmake; do
+    if which $executable_name; then
+      echo "$executable_name executable found"
+    else
+      echo "$executable_name executable not found"
+      exit 1
+    fi
+  done
+
+fi
+
+mkdir -p "$PREFIX"
+
+echo "checking $YADIFA_SRC"
+if [ ! -d $YADIFA_SRC ]; then
+    git clone $YADIFA_GIT yadifa
+    cd yadifa
+    git checkout $YADIFA_GIT_TAG
+    cd -
+fi
+
+echo "checking $YADIFAD"
+if [ ! -f "$YADIFAD" ]; then
+  rm -rf "$YADIFA_BUILDDIR"
+  mkdir -p "$YADIFA_BUILDDIR"
+  cd "$YADIFA_BUILDDIR"
+  cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DBUILD_STATIC_LIBS=ON -DBUILD_SHARED_LIBS=OFF -DNDEBUG=1 -DDEBUG=0 -DRRL:BOOL=OFF -DFULL_ASCII7:BOOL=ON -DCTRL:BOOL=ON -DCMAKE_INSTALL_PREFIX="$PREFIX/yadifa" -DLOGDIR="$PREFIX/yadifa/var/log" -DOQS:BOOL=ON -DZALLOC:BOOL=OFF "$YADIFA_SRC"
+  ninja
+  cd -
+fi
+
+cd "$YADIFA_BUILDDIR"
+ninja install
+cd -
+
+echo "checking $GLIBCHOOKS_BUILDDIR"
+if [ ! -d "$GLIBCHOOKS_BUILDDIR" ]; then
+  rm -rf "$GLIBCHOOKS_BUILDDIR"
+  mkdir -p "$GLIBCHOOKS_BUILDDIR"
+  cd "$GLIBCHOOKS_BUILDDIR"
+  cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PREFIX" "$GLIBCHOOKS_SRC"
+  ninja
+  cd -
+fi
+
+cd "$GLIBCHOOKS_BUILDDIR"
+ninja install
+cd -
+
+# generate an unsigned zone if needed
+if [ ! -f "$SCRIPT_DIR/zonesign/$ZONEFILENAME" ]; then
+  cd "$SCRIPT_DIR/zonesign"
+  ./gen-zone.py "$ORIGIN" "$SCRIPT_DIR/zonesign/$ZONEFILENAME"
+  cd -
+fi
+
+echo "making dir '$ZONEDIR'"
+mkdir -p "$ZONEDIR"
+cp "$SCRIPT_DIR/zonesign/$ZONEFILENAME" "$ZONEDIR"
+cp "$SCRIPT_DIR/zonesign/yadifad.conf.template" "$ZONEDIR"
+
+echo "making dir '$DESTDIR'"
+mkdir -p "$DESTDIR"

@@ -1,0 +1,312 @@
+#!/usr/bin/bash
+
+SCRIPT_DIR=$(readlink -f $(dirname "$0"))
+cd "$SCRIPT_DIR"
+
+# one existing delegation
+
+DELEGATIONEXISTS="magnus"  # magnus is one of the names present in the generated zone
+
+# one notexisting delegation
+
+DELEGATIONNOTHERE="azklermazkhxmlx"
+
+# ALGORITHMS should be set by settings
+
+ALGORITHMS=""
+
+# traditional algorithms
+
+ALGORITHMS_TRAD="RSASHA1 RSASHA1-NSEC3-SHA1 RSASHA256 RSASHA512 ECDSAP256SHA256 ECDSAP384SHA384 ED25519 ED448"
+
+# 2024 quantum-safe algorithms
+
+ALGORITHMS_DILITHIUM="DILITHIUM2 DILITHIUM3 DILITHIUM5"
+ALGORITHMS_FALCON="FALCON512 FALCON1024 FALCONP512 FALCONP1024"
+ALGORITHMS_SPHINCS="SPHINCSPSHA2128F SPHINCSPSHA2128S SPHINCSPSHA2192F SPHINCSPSHA2192S SPHINCSPSHA2256F SPHINCSPSHA2256F SPHINCSPSHA2256S SPHINCSPSHA2256S SPHINCSPSHAKE128F SPHINCSPSHAKE128F SPHINCSPSHAKE128S SPHINCSPSHAKE128S SPHINCSPSHAKE192F SPHINCSPSHAKE192F SPHINCSPSHAKE192S SPHINCSPSHAKE192S SPHINCSPSHAKE256F SPHINCSPSHAKE256F SPHINCSPSHAKE256S SPHINCSPSHAKE256S"
+ALGORITHMS_MAYO="MAYO1 MAYO2 MAYO3 MAYO5"
+ALGORITHMS_CROSS="CROSSRSDP128B CROSSRSDP128F CROSSRSDP128S CROSSRSDP192B CROSSRSDP192F CROSSRSDP192S CROSSRSDP256B CROSSRSDP256S CROSSRSDP256S CROSSRSDPG128B CROSSRSDPG128B CROSSRSDPG128F CROSSRSDPG128F CROSSRSDPG128S CROSSRSDPG128S CROSSRSDPG192B CROSSRSDPG192B CROSSRSDPG192F CROSSRSDPG192F CROSSRSDPG192S CROSSRSDPG192S CROSSRSDPG256B CROSSRSDPG256B CROSSRSDPG256F CROSSRSDPG256F CROSSRSDPG256S CROSSRSDPG256S"
+
+# 2026 quantim-safe algorithms (after first selection)
+
+ALGORITHMS_2O26="RSASHA256 RSASHA512 ECDSAP256SHA256 ECDSAP384SHA384 ED25519 ED448 FALCON512 FALCONP512 MAYO1 SNOVA_SNOVA_24_5_4 SNOVA_SNOVA_24_5_4_SHAKE SNOVA_SNOVA_24_5_4_ESK SNOVA_SNOVA_24_5_4_SHAKE_ESK SNOVA_SNOVA_24_5_5 CROSSRSDPG128B CROSSRSDPG128F FALCON1024 FALCONP1024 MAYO2 MAYO3 MAYO5 MLDSA_44 MLDSA_65 MLDSA_87 SNOVA_SNOVA_25_8_3 SNOVA_SNOVA_29_6_5 SNOVA_SNOVA_37_17_2 SNOVA_SNOVA_37_8_4 SNOVA_SNOVA_49_11_3 SNOVA_SNOVA_60_10_4"
+
+. ./settings
+
+ZONEFILE=$ZONEDIR/$ZONEFILENAME
+YADIFACONF=$ZONEDIR/yadifad.conf.template
+PORT=10053
+ENDDATE=20370101000000
+
+# benchmark command args
+# nN loop N times (300 by default)
+# lN from algorithm N
+# hN to algorithm N
+# if only one 'l' or 'h' is used, then only algorithm N will be tested
+#
+BENCHMARK_ARGS="n$DNSSEC_BENCHMARK_SIGNATURES_COUNT l5 h243"
+
+BENCHMARK_FILE="$SCRIPT_DIR/benchmark.txt"
+BENCHMARK_CSV="$SCRIPT_DIR/benchmark.csv"
+MEASURES_CSV="$SCRIPT_DIR/measures.csv"
+
+if [ "x$ALGORITHMS" = "x" ]; then
+  echo "ALGORITHMS variable empty"
+  exit 1
+fi
+
+ts()
+{
+  date +'%s'
+}
+
+dod()
+{
+  echo $*
+  $*
+  if [ $? -ne 0 ]; then
+    echo "ERROR!"
+    exit 1
+  fi
+}
+
+cleanup()
+{
+  echo "cleaning '$DESTDIR' up in 5 seconds"
+  sleep 5
+  mkdir -p $DESTDIR
+  rm -rf $DESTDIR/*
+  echo "cleaned-up"
+}
+
+generate_keys()
+{
+  for a in $ALGORITHMS; do
+    echo "$a generating keys"
+    mkdir $DESTDIR/$a
+    cd $DESTDIR/$a
+    start=$(ts)
+    echo "$a KSK $start"
+    ts
+    dod $YADIFA keygen -K $DESTDIR/$a -o $ORIGIN -a $a -b 2048 -f KSK
+    mid=$(ts)
+    echo "$a ZSK $mid"
+    dod $YADIFA keygen -K $DESTDIR/$a -o $ORIGIN -a $a -b 2048
+    stop=$(ts)
+    echo "$a generated keys $stop"
+    echo "$a elapsed: $((mid - start)) + $((stop - mid)) =  $((stop - start))"
+  done
+}
+
+sign_zones()
+{
+  for a in $ALGORITHMS; do
+    start=$(ts)
+    if [ ! -f $DESTDIR/$ZONEFILENAME.$a ]; then
+      echo "$a signing zone $start"
+      export GLIBCHOOKS_OUTPUT_FILE=$DESTDIR/$a/zonesign-hook.txt
+      export LD_PRELOAD=$PRELOAD
+      dod $YADIFA zonesign -H 0 -A -S -K $DESTDIR/$a -o $ORIGIN -e $ENDDATE -f $DESTDIR/$ZONEFILENAME.$a $ZONEFILE
+      unset LD_PRELOAD
+    else
+      echo "$a signing zone $start skipped: already done"
+    fi
+    stop=$(ts)
+    echo "$a signed zone $stop"
+    echo "$a signed zone in $((stop-start)) seconds"
+  done
+}
+
+try_load()
+{
+  a="$1"
+  if [ "x$a" = "x" ]; then
+    echo try_load called without a parameter
+    exit 1
+  fi
+  echo "$a: configuring and loading zone $(ts)"
+  # copy the configuration template
+
+  cp $YADIFACONF $DESTDIR/$a/yadifad.conf
+
+  # replace the name of the zone file to match the algorithm
+
+  dod sed -i "s@WORKINGDIR@$DESTDIR/$a@" $DESTDIR/$a/yadifad.conf
+  dod sed -i "s@ALGORITHM@$a@" $DESTDIR/$a/yadifad.conf
+  dod sed -i "s@USERNAME@$(whoami)@" $DESTDIR/$a/yadifad.conf
+  dod sed -i "s@GROUPNAME@$(whoami)@" $DESTDIR/$a/yadifad.conf
+  dod sed -i "s@ZONEFILEPATH@$DESTDIR/$ZONEFILENAME.$a@" $DESTDIR/$a/yadifad.conf
+
+  # create the dirs
+
+  mkdir -p $DESTDIR/$a/var/log
+  mkdir -p $DESTDIR/$a/var/run
+  mkdir -p $DESTDIR/$a/var/zones
+  mkdir -p $DESTDIR/$a/var/zones/keys
+  mkdir -p $DESTDIR/$a/var/zones/xfr
+
+  # start yadifad using that zone
+
+  export GLIBCHOOKS_OUTPUT_FILE=$DESTDIR/$a/yadifa-hook.txt
+  export LD_PRELOAD=$PRELOAD
+  dod $YADIFAD -c $DESTDIR/$a/yadifad.conf
+  unset LD_PRELOAD
+
+  # query yadifad until it answers properly
+
+  while true; do
+    echo "$a waiting for dig not to fail anymore"
+    dig -p $PORT @127.0.0.1 $ORIGIN > /dev/null 2>&1
+    if [ $? -eq 0 ]; then break; fi
+    sleep 1
+  done
+
+  while true; do
+    echo "$a waiting for dig to give a NOERROR"
+    dig -p $PORT @127.0.0.1 $ORIGIN |grep 'status: NOERROR'> /dev/null 2>&1
+    if [ $? -eq 0 ]; then break; fi
+    sleep 1
+  done
+
+  echo "$a configured and loaded zone $(ts)"
+
+  # do a few queries
+
+  dig -p $PORT @127.0.0.1 $ORIGIN DNSKEY +dnssec > $DESTDIR/$a/DNSKEY.txt 2>&1
+  echo "$a queried DNSKEY $(ts)"
+
+  dig -p $PORT @127.0.0.1 $ORIGIN SOA +dnssec > $DESTDIR/$a/SOA.txt 2>&1
+  echo "$a queried SOA $(ts)"
+
+  dig -p $PORT @127.0.0.1 $ORIGIN ANY +dnssec > $DESTDIR/$a/ANY.txt 2>&1
+  echo "$a queried ANY $(ts)"
+
+  dig -p $PORT @127.0.0.1 $DELEGATIONEXISTS.$ORIGIN NS +dnssec > $DESTDIR/$a/NS.txt 2>&1
+  echo "$a queried NS $(ts)"
+
+  dig -p $PORT @127.0.0.1 $DELEGATIONEXISTS.$ORIGIN ANY +dnssec > $DESTDIR/$a/ANY-delegation.txt 2>&1
+  echo "$a queried delegation ANY  $(ts)"
+
+  dig -p $PORT @127.0.0.1 $DELEGATIONNOTHERE.$ORIGIN ANY +dnssec > $DESTDIR/$a/ANY-delegation-nxdomain.txt 2>&1
+  echo "$a queried not-existing delegation ANY $(ts)"
+
+  dig -p $PORT @127.0.0.1 $DELEGATIONEXISTS.$ORIGIN NS +dnssec > $DESTDIR/$a/NS-delegation.txt 2>&1
+  echo "$a queried delegation NS $(ts)"
+
+  dig -p $PORT @127.0.0.1 $DELEGATIONEXISTS.$ORIGIN DS +dnssec > $DESTDIR/$a/DS-delegation.txt 2>&1
+  echo "$a queried delegation DS $(ts)"
+
+  dig -p $PORT @127.0.0.1 $ORIGIN AXFR +dnssec +onesoa > $DESTDIR/$a/AXFR.txt 2>&1
+  echo "$a queried AXFR $(ts)"
+
+  # stop yadifad
+  pid_file="$DESTDIR/$a/var/run/yadifad.pid"
+  while [ -f "$pid_file" ]; do
+    pid=$(cat "$pid_file")
+    if [ ! "x$pid" = "x" ]; then
+      echo "$a killing yadifa with pid $pid"
+
+      kill -INT $pid
+      if [ $? -ne 0 ]; then
+        break
+      fi
+    else
+      break
+    fi
+    sleep 1
+  done
+
+  echo "$a stopped $(ts)"
+  sleep 1
+  echo "$a making sure"
+  pkill -9 yadifad
+  sleep 1
+  echo "$a done $(ts)"
+}
+
+try_loads()
+{
+  for a in $ALGORITHMS; do
+    try_load $a
+  done
+}
+
+parse_results()
+{
+  ./parser/quantum-test-parser.py "$TLD" "$ZONEFILENAME" "$DESTDIR" > $MEASURES_CSV
+}
+
+benckmark_run()
+{
+  if [ -z $BENCHMARK_FILE ]; then
+    echo "BENCHMARK_FILE is empty"
+    exit 1
+  fi
+  echo "running dnskey-benchmark $BENCHMARK_ARGS, output to '$BENCHMARK_FILE'"
+  ./yadifa-build/tests/dnskey-benchmark/dnskey-benchmark $BENCHMARK_ARGS | tee $BENCHMARK_FILE
+  grep "algorithm: summary:" $BENCHMARK_FILE |sed 's/^algorithm: summary: //' > $BENCHMARK_CSV
+  exit 0
+}
+
+help()
+{
+  echo "$0 cleanup|benchmark-run|generate-keys|sign-zones|try-load|parse-results|full"
+  echo
+  echo "full is the sequence: cleanup, benchmark-run, generate-keys, sign-zones, try-load, parse-results"
+  echo
+  exit 1
+}
+
+if [ "x$DESTDIR" = "x" ]; then
+  echo "DESTDIR is empty!"
+  exit 1
+fi
+
+if [ "x$1" = "x" ]; then
+  help
+fi
+
+date
+
+case $1 in
+  print)
+    for a in $ALGORITHMS; do
+      echo $a
+    done
+    ;;
+  cleanup)
+    cleanup
+    ;;
+  benchmark-run)
+    benckmark_run
+    ;;
+  generate-keys)
+    generate_keys
+    ;;
+  sign-zones)
+    sign_zones
+    ;;
+  try-load)
+    try_loads
+    ;;
+  parse-results)
+    parse_results
+    ;;
+  full)
+    cleanup
+    benckmark_run
+    date
+    generate_keys
+    date
+    sign_zones
+    date
+    try_loads
+    date
+    parse_results
+    ;;
+  *)
+    help
+    ;;
+esac
+
+date

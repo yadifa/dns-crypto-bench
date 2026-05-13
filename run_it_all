@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set -e
+
+SCRIPT_DIR=$(readlink -f $(dirname "$0"))
+cd "$SCRIPT_DIR"
+
+./run cleanup
+./run benchmark-run 2> benchmark-run.err | tee benchmark-run.txt
+./run generate-keys 2> generate-keys.err | tee generate-keys.txt
+./run sign-zones 2> sign-zones.err | tee sign-zones.txt
+./run try-load 2> try-load.err | tee try-load.txt
+./run parse-results 2> parse-into-results.err | tee parse-into-results.txt

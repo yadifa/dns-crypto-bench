@@ -1,0 +1,48 @@
+<main>
+        daemon                      on
+        logpath                     "WORKINGDIR/var/log"
+        pidfile                     "WORKINGDIR/var/run/yadifad.pid"
+        datapath                    "WORKINGDIR/var/zones"
+        keyspath                    "WORKINGDIR/var/zones/keys"
+        xfrpath                     "WORKINGDIR/var/zones/xfr"
+        hostname                    "yadifad-ALGORITHM"
+        serverid                    "yadifad-ALGORITHM"
+        edns0-max-size              4096
+        user                        USERNAME
+        group                       GROUPNAME
+        port                        10053
+        listen                      0.0.0.0
+        queries-log-type            1
+        allow-query                 any
+        allow-update                any
+        allow-transfer              any
+        allow-notify                none
+</main>
+
+<rrl>
+        enabled false
+</rrl>
+
+<channels>
+#       name        stream-name     arguments
+        all         all.log         0644
+        queries     queries.log     0644
+        statistics  statistics.log  0644
+</channels>
+
+<loggers>
+#       bundle          debuglevel                          channels
+        database        prod                                all
+        dnssec          prod                                all
+        server          prod                                all
+        stats           prod                                statistics
+        system          prod                                all
+        zone            prod                                all
+        queries         prod                                queries
+</loggers>
+
+<zone>
+        type                    primary
+        domain                  eu.
+        file                    ZONEFILEPATH
+</zone>

@@ -1,0 +1,51 @@
+# These are the default settings for the practical benchmark
+
+# A directory is perfectly fine with the default settings
+# For real measures using a real TLD zone, a persistent storage with hundred of gigabytes or terabytes of space must be considered
+# Depending on the parameters, the run can takes hours to days.
+PREFIX="/tmp/registry"
+
+# The TLD that will be used. The default is "eu" and the sources will generate a small stub if needed.
+ORIGIN="eu"
+# The zone file name for the TLD, to be found in the zonesign directory
+# You can provide your own zone file provided it's an unsigned NSEC3 zone without any DNSKEY present
+# The scripts will sign it NSEC3-OPTOUT for each selected algorithm
+ZONEFILENAME="$ORIGIN.zone"
+
+# The algorithms that'll be used by the benchmark
+#
+# Possible groups are:
+#
+# ALGORITHMS_2O26 ALGORITHMS_TRAD ALGORITHMS_DILITHIUM ALGORITHMS_FALCON ALGORITHMS_SPHINCS ALGORITHMS_MAYO ALGORITHMS_CROSS
+#
+# ALGORITHMS_2O26 This is the recommended list.  Look inside the 'run' script to know more.
+#
+ALGORITHMS="$ALGORITHMS_2O26"
+
+# Signatures iterations
+#
+# During the benchmark, signatures are executed N times.
+# For the example setup, this value is set to 2.
+# Bigger values may takes days or weeks to execute.
+#
+# For reference, on a i7-12850HX, a DNSSEC_BENCHMARK_SIGNATURES_COUNT=10 will take about 40 minutes.
+#
+DNSSEC_BENCHMARK_SIGNATURES_COUNT=2
+
+# The settings below this line are probably best left untouched.
+
+# YADIFA 3.0.9 will be cloned and used locally
+YADIFA_GIT="https://github.com/yadifa/yadifa.git"
+YADIFA_GIT_TAG="v3.0.9"
+YADIFA_SRC="$SCRIPT_DIR/yadifa"
+YADIFA_BUILDDIR="$SCRIPT_DIR/yadifa-build"
+
+YADIFA="$YADIFA_BUILDDIR/bin/yadifa/yadifa"
+YADIFAD="$YADIFA_BUILDDIR/sbin/yadifad/yadifad"
+
+GLIBCHOOKS_SRC="$SCRIPT_DIR/glibchooks"
+GLIBCHOOKS_BUILDDIR="$SCRIPT_DIR/glibchooks-build"
+PRELOAD="$PREFIX/lib/libglibchooks.so"
+
+ZONEDIR="$PREFIX/zonesign"
+DESTDIR="$PREFIX/quantum"

@@ -1,0 +1,9 @@
+.idea/*
+yadifa/*
+glibchooks-build/*
+yadifa-build/*
+sign-zones.*
+try-load.*
+generate-keys.*
+parse-into-results.*
+zonezign/eu.zone

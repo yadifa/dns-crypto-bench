@@ -1,0 +1,19 @@
+#!/bin/sh
+
+set -e
+
+SCRIPT_DIR=$(readlink -f $(dirname "$0"))
+cd "$SCRIPT_DIR"
+
+rm -rf yadifa
+rm -rf glibchooks-build
+rm -rf yadifa-build
+rm -f sign-zones.*
+rm -f try-load.*
+rm -f generate-keys.*
+rm -f parse-into-results.*
+rm -f benchmark.txt
+rm -f benchmark.csv
+rm -f measures.csv
+rm -f benchmark-run.txt benchmark-run.err
+
