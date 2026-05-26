@@ -1,7 +1,11 @@
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1
+#endif
 #include <stdlib.h>
 #include <stdint.h>
 #include <dlfcn.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 bool glibchooks_set_dummy(const char *command, void *hook)
 {

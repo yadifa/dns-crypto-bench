@@ -57,4 +57,4 @@ If no error occur, run the benchmark:
 
 ./run_it_all
 
-A results.csv file will be generated in the directory of the 'run' script, as well as a few text files.
+A measures.csv file will be generated in the directory of the 'run' script, as well as a few text files.

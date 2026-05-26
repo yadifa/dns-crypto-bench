@@ -28,7 +28,7 @@ if [ -f "/etc/arch-release" ]; then
 
 else
 
-  if [ [ -f /usr/lib/liboqs.so ] || [ -f /usr/local/lib/liboqs.so ] ] && [ [ -f /usr/include/oqs/oqs.h ] || [ -f /usr/local/include/oqs/oqs.h ] ]; then
+  if { [ -f /usr/lib/liboqs.so ] || [ -f /usr/local/lib/liboqs.so ] || [ -f /usr/local/lib64/liboqs.so ]; } && { [ -f /usr/include/oqs/oqs.h ] || [ -f /usr/local/include/oqs/oqs.h ]; }; then
     echo "liboqs appears to be installed"
   else
     echo "========================================================================================================="
@@ -37,7 +37,7 @@ else
     exit 1
   fi
 
-  if [ [ -f /usr/lib/libssl.so ] || [ -f /usr/local/lib/libssl.so ] ] && [ [ -f /usr/include/openssl/ssl.h ] || [ -f /usr/local/include/openssl/ssl.h ] ]; then
+  if { [ -f /usr/lib/libssl.so ] || [ -f /usr/local/lib/libssl.so ] || [ -f /usr/lib64/libssl.so ]; } && { [ -f /usr/include/openssl/ssl.h ] || [ -f /usr/local/include/openssl/ssl.h ]; }; then
     echo "libssl appears to be installed"
   else
     echo "======================================================================================================"

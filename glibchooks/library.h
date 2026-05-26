@@ -12,6 +12,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 #define INTERNAL __attribute__((visibility("hidden")))
 

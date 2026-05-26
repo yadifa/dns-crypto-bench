@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
+#include <stdbool.h>
 #include "glibchooks_controller.h"
 #include "filedescriptor.h"
 
